@@ -10,11 +10,14 @@
     #region Variables
     private Rigidbody2D rb;
         private input_manager input;
-    bool onwall;
+    Rigidbody2D platformrb;
+    bool isonPlatform;
+
         [Header("Movement Preferences")]
         [SerializeField] float movementSpeed = 10f;
         [SerializeField] float jumpForce = 8f;
     [SerializeField] float jumptime = 0.1f;
+    [SerializeField] float movingplatformMs = 20f;
    public float jumpTimer = 0f;
          Vector2 movementDir;
    
@@ -41,11 +44,12 @@
 
        
         [SerializeField] LayerMask wall_Layer;
-        //  bool Sliding;   
+       
         RaycastHit2D Rhit, Lhit;
         [Header("Wall jump settings")]
         [SerializeField] float wallJumpForce = 5f;
-        
+    bool onwall;
+
     [SerializeField] float wallJumpTime = 0.2f;
     private float wallJumpTimer = 0f;
     [SerializeField] float knockBackForce = 15f;
@@ -56,26 +60,41 @@
         [SerializeField] float slidingSpeed = 1f;
     private bool slideJumpReady;
 
+
+
     #endregion
     private void Start()
         {
             rb = GetComponent<Rigidbody2D>();
             input = input_manager.Instance;
             groundLayer = LayerMask.GetMask(groundLayerName);
+       
             rb.freezeRotation = true;
             spriteRef = GetComponent<SpriteRenderer>();
             dashIsReady = true;
         rb.gravityScale = originalGravity;
+
         }
 
         private void Update()
         {
         calculateJumpTime();
-        if (wallJumpTimer < 0)
+        if (wallJumpTimer < 0  )
         {
-            movementDir.x = input.MoveInput.x * movementSpeed;
+            if(transform.parent == null)
+            {
+                isonPlatform = false;
+                movementDir.x = input.MoveInput.x * movementSpeed;
+            }
+       
 
-
+         else if (transform.parent != null && transform.parent.GetComponent<Rigidbody2D>())
+            {
+                isonPlatform = true;
+              platformrb = transform.parent.GetComponent<Rigidbody2D>();
+                
+            
+            }
             rotatePlayer();
 
         }
@@ -84,16 +103,18 @@
         resetSjump();
         isGrounded();
         handleGravity();
-
-
+       
     }
-        
-        private void FixedUpdate()
+    
+    private void FixedUpdate()
         {
+      
             rb.velocity = new Vector2(movementDir.x, rb.velocity.y);
-            onjump();
+      if(isonPlatform) rb.velocity = new Vector2(movementDir.x + platformrb.velocity.x, rb.velocity.y);
+        onjump();
             handleDash();
             wallCheck();
+
         }
 
         private void onjump()
@@ -109,14 +130,15 @@
 
         void rotatePlayer()
         {
-            if (movementDir.x > 0)
+            if (movementDir.x > 0 && !Rhit && !Lhit)
             {
                 spriteRef.flipX = false;
             }
-            else if (movementDir.x < 0)
+            else if (movementDir.x < 0 && !Rhit && !Lhit)
             {
                 spriteRef.flipX = true;
             }
+
         }
         void handleDash()
         {
@@ -181,64 +203,57 @@
 
     void wallCheck()
     {
-        onwall = false;
+       
         Rhit = Physics2D.Raycast(transform.position, transform.right, range, wall_Layer);
         Lhit = Physics2D.Raycast(transform.position, -transform.right, range, wall_Layer);
 
-        if (Rhit.collider != null && groundTimer < 0 && input.MoveInput.x == 1)
+        if (Rhit.collider != null && groundTimer < 0 )
         {
             onwall = true;
+            spriteRef.flipX = onwall; 
             rb.velocity = new Vector2(rb.velocity.x, -slidingSpeed); // Slide down
-
-            if (input.JumpTrigger && slideJumpReady)
-            {
-                rb.velocity = new Vector2(rb.velocity.x, -slidingSpeed); // Slide down
-                rb.velocity = new Vector2(rb.velocity.x, 0f); // Reset vertical velocity
-                wallJumpTimer = wallJumpTime;
-                spriteRef.flipX = !spriteRef.flipX;
-
-                rb.velocity = new Vector2(-input.MoveInput.x * knockBackForce, wallJumpForce);
-
-                Debug.Log("Right wall jump");
+            WallJumping(1);
 
 
-                slideJumpReady = false;
-                onwall = false;
-            }
+
         }
-        else if (Lhit.collider != null && groundTimer < 0 && input.MoveInput.x == -1 )
+        else if (Lhit.collider != null && groundTimer < 0  )
         {
+            onwall = false;
+            spriteRef.flipX = onwall;
             rb.velocity = new Vector2(rb.velocity.x, -slidingSpeed); // Slide down
-            onwall = true;
-            if (input.JumpTrigger && slideJumpReady)
-            {
-                rb.velocity = new Vector2(rb.velocity.x, 0f); // Reset vertical velocity
-                wallJumpTimer = wallJumpTime;
-                spriteRef.flipX = !spriteRef.flipX;
-
-                rb.velocity = new Vector2(-input.MoveInput.x * knockBackForce, wallJumpForce);
-
-                Debug.Log("Right wall jump");
-
-
-                slideJumpReady = false;
-                onwall = false;
-            }
+           
+            WallJumping(-1);
 
         }
         
+    }
+  void WallJumping(int xDir )
+    {
+        if (input.JumpTrigger && slideJumpReady)
+        {
+            rb.velocity = new Vector2(rb.velocity.x, -slidingSpeed); // Slide down
+                                                                     //  rb.velocity = new Vector2(rb.velocity.x, 0f); // Reset vertical velocity
+            wallJumpTimer = wallJumpTime;
+          
+          
+            
+            movementDir.x = (-transform.right.x *xDir)* knockBackForce;
+            rb.velocity = new Vector2(movementDir.x, wallJumpForce);
+          
+            Debug.Log("Right wall jump");
+
+
+            slideJumpReady = false;
+            onwall = false;
+        }
     }
     void resetSjump()
     {
         if (groundTimer > 0 || Vector2.Distance(transform.position,Rhit.point)>= range * 2|| Vector2.Distance(transform.position, Lhit.point) >= range * 2)  slideJumpReady = true;
        
     }
-   /* private void OnCollisionEnter2D(Collision2D col)
-    {
-        if (col.collider.CompareTag("jumpPad")) {
-            rb.velocity = new Vector2(rb.velocity.x,jumpForce *2) ; 
-        }
-    }*/
+
 }
 
 

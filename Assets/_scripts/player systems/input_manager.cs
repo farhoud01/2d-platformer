@@ -13,15 +13,16 @@ public class input_manager : MonoBehaviour
     [SerializeField] private string move = "move";
     [SerializeField] private string jump = "jump";
     [SerializeField] private string dash = "dash";
-
+    [SerializeField] private string hook = "g";
     private InputAction moveAction;
     InputAction jumpAction;
     InputAction dashAction;
-    private bool previousJumpButtonState;
+    InputAction grappleAction; 
+
 
     public Vector2 MoveInput  { get; private set; }
     public bool JumpTrigger { get; private set; }
-
+    public  bool  grappleTrigger { get; private set; }
 
 
     public bool dashTrigger { get; private set; }
@@ -39,6 +40,7 @@ public class input_manager : MonoBehaviour
         moveAction = playerActions.FindActionMap(actionMapName).FindAction(move);
         jumpAction = playerActions.FindActionMap(actionMapName).FindAction(jump);
         dashAction = playerActions.FindActionMap(actionMapName).FindAction(dash);
+        grappleAction = playerActions.FindActionMap(actionMapName).FindAction(hook);
         registerInput();
     }
   
@@ -53,6 +55,8 @@ public class input_manager : MonoBehaviour
 
         jumpAction.started += ctx => JumpTrigger = true;
         jumpAction.canceled += ctx => JumpTrigger = false;
+        grappleAction.performed += ctx => grappleTrigger = true;
+        grappleAction.canceled += ctx => grappleTrigger = false;
     }
     private void Update()
     {
@@ -63,12 +67,14 @@ public class input_manager : MonoBehaviour
         moveAction.Enable();
         jumpAction.Enable();
         dashAction.Enable();
+        grappleAction.Enable();
     }
     private void OnDisable()
     {
         moveAction.Disable();
         jumpAction.Disable();
         dashAction.Disable();
+        grappleAction.Disable();
     }
     IEnumerator handleHolding()
     {
@@ -76,6 +82,10 @@ public class input_manager : MonoBehaviour
             yield return new WaitForSeconds(.05f);
             JumpTrigger = false;
         }
-            
+        if (grappleTrigger == true)
+        {
+            yield return new WaitForSeconds(1f);
+            grappleTrigger = false;
+        }
     }
 }
